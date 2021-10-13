@@ -1,5 +1,27 @@
 #include "my_stack.h"
 
+
+static ERROR_CODE increase_capacity(stack_t *stack);
+
+static ERROR_CODE reduce_capacity(stack_t *stack);
+
+static ERROR_CODE get_init_mem(stack_t *stack, size_t init_capacity);
+
+#if PROTECTION_LVL2
+	static uint32_t get_hash(const stack_t* stack);
+
+	inline size_t stack_n_bytes_for_hash(const stack_t *stack);
+
+	inline size_t data_n_bytes_for_hash(const stack_t *stack);
+#endif
+
+static ERROR_CODE stack_error(const stack_t *stack);
+
+static void stack_dump(const stack_t *stack, const int err_code, const int n_line, const char *file_name, const char* func_name);
+
+static void dump_stack_data(const stack_t *stack);
+
+
 ERROR_CODE StackConstructor(stack_t* stack, size_t init_capacity){
 
 	assert(stack != NULL);
@@ -35,15 +57,6 @@ ERROR_CODE StackConstructor(stack_t* stack, size_t init_capacity){
 		stack->hash_value = get_hash(stack);
 	#endif
 	
-
-	/*
-	#if DUMP_ALL || PROTECTION_LVL0
-		to_log("________________________________________________\n"
-			   "|\tStack [%d] was created                 |\n"
-			   "|_______________________________________________|\n\n"
-			   , stack);
-	#endif
-	*/
 	RETURN(ERROR_CODE::OK, stack)
 }
 
@@ -337,7 +350,7 @@ void stack_dump(const stack_t *stack, const int err_code, const int n_line, cons
 	assert(stack != NULL);
 
 	to_log( "stack_t<%s> (%s) from function \"%s\"\n"
-			"adress = [%x], from \"%s\"(%d)\n",
+			"adress = [%x], from \"%s\"(%d)\n\n",
 			TYPE_NAME, err_code == (int)ERROR_CODE::OK ? "ok" : "ERROR", func_name,
 			stack, file_name, n_line);
 
@@ -391,14 +404,14 @@ void stack_dump(const stack_t *stack, const int err_code, const int n_line, cons
 		return;
 	}
 
-	to_log( "{\n"
+	to_log(
 					#if PROTECTION_LVL1
 						"canary_left       = %llx\n"
 						"canary_right      = %llx\n"
 					#endif
 					
-					"size                  = %d\n"
-					"capacity              = %d\n"
+					"size              = %d\n"
+					"capacity          = %d\n"
 					
 					#if PROTECTION_LVL2
 						"hash_value        = %lx\n"
@@ -409,7 +422,7 @@ void stack_dump(const stack_t *stack, const int err_code, const int n_line, cons
 						"data_canary_right = %llx\n"
 					#endif
 					
-					"data[%x]\n"
+					"\ndata[%x]\n"
 					"{\n",
 					#if PROTECTION_LVL1
 						stack->canary_left,

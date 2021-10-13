@@ -9,23 +9,6 @@
 
 #define LOCATION __LINE__, __FILE__, __FUNCTION__
 
-/*
-#ifdef DEBUG
-#define ON_DEBUG(smth) smth
-#else
-#define ON_DEBUG(smth)
-#endif
-...
-struct Stack
-{
-	ON_DEBUG(uint64_t canary;)
-
-	int size;
-	...
-	ON_DEBUG(...)
-}
-*/
-
 typedef unsigned long long CANARY;
 
 const CANARY VALID_CANARY_VALUE = 0xDED64DED;
@@ -39,8 +22,6 @@ const uint32_t HASH_INIT_VALUE  = 0xDED32DED;
 const int STACK_INIT_CAPACITY = 32;
 const int INCREASE_CAPACITY_RATIO = 2;
 const int REDUCE_CAPACITY_RATIO = 8;
-
-// const int MAX_STACK_SIZE_TO_PRINT = 50;
 
 enum class ERROR_CODE{
 	OK								= 0x1DEA01,
@@ -68,6 +49,17 @@ typedef int TYPE_STACK;
 const char TYPE_NAME[] = "int";
 const TYPE_STACK POISON_ELEM = 228;
 
+struct stack_location_info{
+	
+	size_t n_line;
+	char* library_file_name;
+	char* library_func_name;
+	char* init_file_name;
+	
+	char* stack_name;
+
+};
+
 struct stack_t{
 	#if PROTECTION_LVL1
 		CANARY       canary_left;
@@ -81,8 +73,7 @@ struct stack_t{
 
 		TYPE_STACK*      data;
 		char*		     begin_data;
-		 
-		// char* name??
+		
 	#if PROTECTION_LVL2
 		uint32_t     hash_value;
 	#endif
@@ -99,26 +90,6 @@ ERROR_CODE StackDestructor(stack_t *stack);
 ERROR_CODE StackPush(stack_t *stack, const TYPE_STACK new_elem);
 
 ERROR_CODE StackPop(stack_t *stack);
-
-static ERROR_CODE increase_capacity(stack_t *stack);
-
-static ERROR_CODE reduce_capacity(stack_t *stack);
-
-static ERROR_CODE get_init_mem(stack_t *stack, size_t init_capacity);
-
-#if PROTECTION_LVL2
-	static uint32_t get_hash(const stack_t* stack);
-
-	inline size_t stack_n_bytes_for_hash(const stack_t *stack);
-
-	inline size_t data_n_bytes_for_hash(const stack_t *stack);
-#endif
-
-static ERROR_CODE stack_error(const stack_t *stack);
-
-static void stack_dump(const stack_t *stack, const int err_code, const int n_line, const char *file_name, const char* func_name);
-
-static void dump_stack_data(const stack_t *stack);
 
 // obj должен быть указателем
 #if DUMP_ALL
@@ -145,10 +116,10 @@ static void dump_stack_data(const stack_t *stack);
 #else
 #define STACK_VERIFY(obj) assert(obj != NULL);
 
-#endif
+#endif // STACK_VERIFY
 
 #define RETURN(return_value, stack)			\
 	STACK_VERIFY(stack);					\
 	return return_value;
 
-#endif
+#endif // RETURN
