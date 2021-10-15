@@ -30,6 +30,10 @@ ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* s
 	assert(stack != NULL);
 	assert(init_capacity != 0);
 
+	if(stack_error(stack) == ERROR_CODE::OK){
+		return ERROR_CODE::STACK_WAS_ALREADY_CREATED;
+	}
+
 	#if PROTECTION_LVL1
 		stack->canary_left  = VALID_CANARY_VALUE;
 		stack->canary_right = VALID_CANARY_VALUE;
@@ -55,8 +59,6 @@ ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* s
 		stack->hash_value = get_hash(stack);
 	#endif
 
-	DUMP(stack)
-	STACK_VERIFY(stack)
 	RETURN(ERROR_CODE::OK, stack)
 }
 
@@ -339,9 +341,6 @@ static ERROR_CODE stack_error(const stack_t *stack){
 	#endif
 	
 	#if PROTECTION_LVL2
-
-
-		char *a = (char*)stack->begin_data;
 
 		uint32_t valid_hash_value = get_hash(stack);
 
