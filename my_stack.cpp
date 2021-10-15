@@ -17,12 +17,15 @@ static ERROR_CODE get_init_mem(stack_t *stack, size_t init_capacity);
 
 static ERROR_CODE stack_error(const stack_t *stack);
 
-static void stack_dump(const stack_t *stack, const int err_code, const int n_line, const char *file_name, const char* func_name);
+
+void stack_dump(const stack_t *stack, const int err_code, const int n_line, const char *file_name, const char* func_name,
+				const char* date, const char* time);
 
 static void dump_stack_data(const stack_t *stack);
 
+// TODO: проверка на существование конструктора
 
-ERROR_CODE StackConstructor(stack_t* stack, size_t init_capacity){
+ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* stack_name, const int line, const char* file_name, const char* func_name){
 
 	assert(stack != NULL);
 	assert(init_capacity != 0);
@@ -32,7 +35,7 @@ ERROR_CODE StackConstructor(stack_t* stack, size_t init_capacity){
 		stack->canary_right = VALID_CANARY_VALUE;
 	#endif
 
-	stack->capacity = -1;
+	stack->capacity = init_capacity;
 	stack->size = 0;
 	stack->data = NULL;
 
@@ -42,21 +45,18 @@ ERROR_CODE StackConstructor(stack_t* stack, size_t init_capacity){
 		return (ERROR_CODE)get_init_mem_result;
 	}
 
-	stack->capacity = init_capacity;
+	stack->location_info.init_n_line    = line;
+	stack->location_info.init_file_name = (char*)file_name;
+	stack->location_info.init_func_name = (char*)func_name;
+	stack->location_info.stack_name     = (char*)stack_name;
 
-	/*
-
-	// POISONS
-
-	for(int i = 0; i < stack->capacity; i++){
-		stack->data[i] = POISON_ELEM;
-	}
-	*/
 
 	#if PROTECTION_LVL2
 		stack->hash_value = get_hash(stack);
 	#endif
-	
+
+	DUMP(stack)
+	STACK_VERIFY(stack)
 	RETURN(ERROR_CODE::OK, stack)
 }
 
@@ -82,19 +82,12 @@ ERROR_CODE StackDestructor(stack_t *stack){
 		stack->hash_value = 0;
 	#endif
 
-	/*
-	#if DUMP_ALL || PROTECTION_LVL0
-		to_log("\n\n________________________________________________\n"
-			   "|\tStack [%d] was destructed              |\n"
-			   "|_______________________________________________|\n\n"
-			   , stack);
-	#endif
-	*/
 	return ERROR_CODE::OK;
 }
 
 ERROR_CODE StackPush(stack_t *stack, const TYPE_STACK new_elem){
 
+	DUMP(stack);
 	STACK_VERIFY(stack);
 
 	if(stack->size + 1 >= stack->capacity){
@@ -125,6 +118,9 @@ ERROR_CODE StackPop(stack_t *stack){
 		if(reduce_return != (int)ERROR_CODE::OK){
 			return (ERROR_CODE)reduce_return;
 		}
+	}
+	else{
+		stack->data[stack->size - 1] = POISON_ELEM;
 	}
 
 	stack->size--;
@@ -167,14 +163,12 @@ static ERROR_CODE increase_capacity(stack_t *stack){
 		stack->begin_data = p_new_memory;
 		stack->data = (TYPE_STACK*)(p_new_memory);
 		
-	#endif
+	#endif // PROTECTION_LVL1
 
-	/* POISONS
-	for(int i = 0; i < stack->capacity; i++){
+	for(int i = stack->size; i < stack->capacity; i++){
 		stack->data[i] = POISON_ELEM;
 	}
-	*/
-
+	
 	p_new_memory = NULL;
 
 	// или так, или не верифицировать в конце
@@ -217,7 +211,7 @@ static ERROR_CODE reduce_capacity(stack_t *stack){
 		stack->begin_data = p_new_memory;
 		stack->data = (TYPE_STACK*)p_new_memory;
 
-	#endif
+	#endif // PROTECTION_LVL1
 
 	p_new_memory = NULL;
 
@@ -258,7 +252,11 @@ static ERROR_CODE get_init_mem(stack_t *stack, size_t init_capacity){
 		stack->begin_data = p_new_memory;
 		stack->data 	  = (TYPE_STACK*)(p_new_memory);
 		
-	#endif
+	#endif // PROTECTION_LVL1
+
+	for(int i = 0; i < stack->capacity; i++){
+		stack->data[i] = POISON_ELEM;
+	}
 	return ERROR_CODE::OK;
 }
 
@@ -272,9 +270,18 @@ static uint32_t get_hash(const stack_t *stack) {
 	uint32_t s1 = 1;
 	uint32_t s2 = 0;
 
-	size_t buflength_stack = (char*)(&stack->hash_value) - (char*)stack;
+	size_t buflength_stack = stack_n_bytes_for_hash(stack);
 
 	for (size_t n = 0; n < buflength_stack; n++) {
+		s1 = (s1 + buffer_stack[n]) % 65521;
+		s2 = (s2 + s1) % 65521;
+	}
+
+	buffer_stack = (const char*)stack->begin_data;
+
+	size_t buflength_data = data_n_bytes_for_hash(stack);
+
+	for (size_t n = 0; n < buflength_data; n++) {
 		s1 = (s1 + buffer_stack[n]) % 65521;
 		s2 = (s2 + s1) % 65521;
 	}
@@ -287,10 +294,10 @@ inline size_t stack_n_bytes_for_hash(const stack_t *stack){
 }
 
 inline size_t data_n_bytes_for_hash(const stack_t *stack){
-	return (char*)(stack->data_canary_right + sizeof(CANARY)) - (char*)(stack->data_canary_left);
+	return (char*)(stack->data_canary_right) + sizeof(CANARY) - (char*)(stack->data_canary_left);
 }
 
-#endif
+#endif // PROTECTION_LVL2
 
 static ERROR_CODE stack_error(const stack_t *stack){
 
@@ -333,6 +340,9 @@ static ERROR_CODE stack_error(const stack_t *stack){
 	
 	#if PROTECTION_LVL2
 
+
+		char *a = (char*)stack->begin_data;
+
 		uint32_t valid_hash_value = get_hash(stack);
 
 		if(stack->hash_value != valid_hash_value){
@@ -345,14 +355,20 @@ static ERROR_CODE stack_error(const stack_t *stack){
 }
 
 
-void stack_dump(const stack_t *stack, const int err_code, const int n_line, const char *file_name, const char* func_name){
+void stack_dump(const stack_t *stack, const int err_code, const int n_line, const char *file_name, const char* func_name,
+				const char* date, const char* time){
 
 	assert(stack != NULL);
 
-	to_log( "stack_t<%s> (%s) from function \"%s\"\n"
-			"adress = [%x], from \"%s\"(%d)\n\n",
-			TYPE_NAME, err_code == (int)ERROR_CODE::OK ? "ok" : "ERROR", func_name,
-			stack, file_name, n_line);
+	to_log( "[#]\tLIBRARY FUNCTION: %s(\"%s\"(%d))\n"
+			"[#]\tDATE: %s | %s\n"
+		    "stack_t<%s> %s(%s) from function \"%s\"(file %s(%d))\n"
+			"adress = [%x]\n\n",
+			func_name, file_name, n_line,
+			date, time,
+			TYPE_NAME, stack->location_info.stack_name, err_code == (int)ERROR_CODE::OK ? "ok" : "ERROR", stack->location_info.init_func_name, stack->location_info.init_file_name,
+			stack->location_info.init_n_line, 
+			stack);
 
 	if(err_code != (int)ERROR_CODE::OK){
 		switch(err_code){
@@ -404,41 +420,42 @@ void stack_dump(const stack_t *stack, const int err_code, const int n_line, cons
 		return;
 	}
 
-	to_log(
+	to_log(				"name               | value         | adress      \n"
+						"___________________|_______________|_____________\n"
 					#if PROTECTION_LVL1
-						"canary_left       = %llx\n"
-						"canary_right      = %llx\n"
+						"canary_left        | %-14llx| [%d]\n"
+						"canary_right       | %-14llx| [%d]\n"
 					#endif
-					
-					"size              = %d\n"
-					"capacity          = %d\n"
-					
+						
+						"size               | %-14d| [%d]\n"
+						"capacity           | %-14d| [%d]\n"
+						
 					#if PROTECTION_LVL2
-						"hash_value        = %lx\n"
+						"hash_value         | %-14lx| [%d]\n"
 					#endif
 					
 					#if PROTECTION_LVL1
-						"data_canary_left  = %llx\n"
-						"data_canary_right = %llx\n"
+						"data_canary_left   | %-14llx| [%d]\n"
+						"data_canary_right  | %-14llx| [%d]\n"
 					#endif
 					
 					"\ndata[%x]\n"
 					"{\n",
 					#if PROTECTION_LVL1
-						stack->canary_left,
-						stack->canary_right,
+						stack->canary_left, &(stack->canary_left),
+						stack->canary_right, &(stack->canary_right),
 					#endif
 					
-					stack->size,
-					stack->capacity,
-					
+						stack->size, &(stack->size),
+						stack->capacity, &(stack->capacity),
+						
 					#if PROTECTION_LVL2
-						stack->hash_value,
+						stack->hash_value, &(stack->hash_value),
 					#endif
 					
 					#if PROTECTION_LVL1
-						*(stack->data_canary_left),
-						*(stack->data_canary_right),
+						*(stack->data_canary_left), stack->data_canary_left,
+						*(stack->data_canary_right), stack->data_canary_right,
 					#endif
 			   		
 			   		stack->data);
@@ -453,8 +470,14 @@ static void dump_stack_data(const stack_t *stack){
 
 	assert(stack != NULL);
 
-	for(int data_counter = 0; data_counter < stack->size; data_counter++){
-		to_log("*[%d] = " TYPE_STACK_specif "\n", data_counter, stack->data[data_counter]);
+	#ifdef SHOW_POISONS
+		size_t n_to_show = stack->capacity;
+	#else
+		size_t n_to_show = stack->size;
+	#endif
+
+	for(int data_counter = 0; data_counter < n_to_show; data_counter++){
+		to_log("*[%5d] = " TYPE_STACK_specif "\n", data_counter, stack->data[data_counter]);
 	}
 
 	return;

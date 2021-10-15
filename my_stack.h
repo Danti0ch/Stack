@@ -8,6 +8,7 @@
 #include "log.h"
 
 #define LOCATION __LINE__, __FILE__, __FUNCTION__
+#define DATE_OF_DEBUG __DATE__, __TIME__
 
 typedef unsigned long long CANARY;
 
@@ -15,6 +16,7 @@ const CANARY VALID_CANARY_VALUE = 0xDED64DED;
 const uint32_t HASH_INIT_VALUE  = 0xDED32DED;
 
 #define DUMP_ALL defined(TOTAL_DUMP)
+// #define SHOW_POISONS
 #define PROTECTION_LVL0 (defined(DEBUG))
 #define PROTECTION_LVL1 ((DEBUG == 2) || (DEBUG == 3))
 #define PROTECTION_LVL2 (DEBUG == 3)
@@ -34,7 +36,8 @@ enum class ERROR_CODE{
 	NOT_VALID_RIGHT_STRUCT_CANARY	= 0x1DEA08,
 	NOT_VALID_LEFT_DATA_CANARY		= 0x1DEA09,
 	NOT_VALID_RIGHT_DATA_CANARY 	= 0x1DEA10,
-	NOT_VALID_HASH_VALUE			= 0x1DEA11
+	NOT_VALID_HASH_VALUE			= 0x1DEA11,
+	STACK_WAS_ALREADY_CREATED		= 0x1DEA12
 };
 
 enum class POISONS{
@@ -47,17 +50,14 @@ typedef int TYPE_STACK;
 
 #define TYPE_STACK_specif "%d"
 const char TYPE_NAME[] = "int";
-const TYPE_STACK POISON_ELEM = 228;
+const TYPE_STACK POISON_ELEM = -111;
 
 struct stack_location_info{
 	
-	size_t n_line;
-	char* library_file_name;
-	char* library_func_name;
-	char* init_file_name;
-	
-	char* stack_name;
-
+	size_t init_n_line;
+	char*  init_file_name;
+	char*  init_func_name;
+	char*  stack_name;
 };
 
 struct stack_t{
@@ -68,22 +68,29 @@ struct stack_t{
 
 	#endif
 
-		size_t           capacity;
-		size_t           size;
+		size_t           	 capacity;
+		size_t           	 size;
 
-		TYPE_STACK*      data;
-		char*		     begin_data;
+		TYPE_STACK*      	 data;
+		char*		     	 begin_data;
 		
 	#if PROTECTION_LVL2
 		uint32_t     hash_value;
 	#endif
+
+		stack_location_info  location_info;
 
 	#if PROTECTION_LVL1
 		CANARY       canary_right;
 	#endif
 };
 
-ERROR_CODE StackConstructor(stack_t* stack, size_t init_capacity);
+
+// TODO: сделать обёртки
+
+#define StackConstructor(obj, cap) _StackConstructor((obj), (cap), #obj, LOCATION)
+
+ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* stack_name, const int line, const char* file_name, const char* func_name);
 
 ERROR_CODE StackDestructor(stack_t *stack);
 
@@ -94,23 +101,30 @@ ERROR_CODE StackPop(stack_t *stack);
 // obj должен быть указателем
 #if DUMP_ALL
 
-	#define STACK_VERIFY(obj)						     			\
-	stack_dump(obj, (int)stack_error(obj), LOCATION);               \
-													     			\
-	if(stack_error(obj) != ERROR_CODE::OK)			    			\
-	{												     			\
-		close_log_file();    										\
-		assert(0 && "verify_failed\n");				     			\
+	#define STACK_VERIFY(obj)                                \
+    {                                                        \
+	    int st_err = (int)stack_error(obj);                  \
+		stack_dump(obj, st_err, LOCATION, DATE_OF_DEBUG);    \
+		                                                     \
+		if(st_err != (int)ERROR_CODE::OK)                    \
+		{                                                    \
+			close_log_file();                                \
+			assert(0 && "verify_failed\n");                  \
+		}                                                    \
 	}
 
 #elif PROTECTION_LVL0
 
-	#define STACK_VERIFY(obj)			     				        \
-	if(stack_error(obj) != ERROR_CODE::OK)       				    \
-	{												     			\
-		stack_dump(obj, (int)stack_error(obj), LOCATION); 	        \
-		close_log_file();	    									\
-		assert(0 && "verify_failed\n");				     			\
+	#define STACK_VERIFY(obj)                                             \
+    {                                                                     \
+		int st_err = (int)stack_error(obj);                               \
+		                                                                  \
+		if(st_err != (int)ERROR_CODE::OK)                                 \
+		{                                                                 \
+			stack_dump(obj, st_err, LOCATION, DATE_OF_DEBUG);             \
+			close_log_file();                                             \
+			assert(0 && "verify_failed\n");                               \
+		}                                                                 \
 	}
 
 #else
@@ -118,8 +132,12 @@ ERROR_CODE StackPop(stack_t *stack);
 
 #endif // STACK_VERIFY
 
-#define RETURN(return_value, stack)			\
-	STACK_VERIFY(stack);					\
+#define RETURN(return_value, stack)         \
+	STACK_VERIFY(stack);                    \
 	return return_value;
 
-#endif // RETURN
+#define DUMP(obj)			\
+	stack_dump(obj, (int)ERROR_CODE::OK, LOCATION, DATE_OF_DEBUG);
+	
+#endif // MY_STACK_H
+
