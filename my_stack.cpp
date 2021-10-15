@@ -23,7 +23,7 @@ void stack_dump(const stack_t *stack, const int err_code, const int n_line, cons
 static void dump_stack_data(const stack_t *stack);
 
 
-ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* stack_name, const int line, const char* file_name, const char* func_name){
+ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, LOC_PARAMS){
 
 	assert(stack != NULL);
 	assert(init_capacity != 0);
@@ -56,7 +56,7 @@ ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* s
 	RETURN(ERROR_CODE::OK, stack)
 }
 
-ERROR_CODE _StackDestructor(stack_t *stack, const char* stack_name, const int line, const char* file_name, const char* func_name){
+ERROR_CODE _StackDestructor(stack_t *stack, LOC_PARAMS){
 
 	LOC_PARAMS_TO_STACK(stack)
 
@@ -66,7 +66,7 @@ ERROR_CODE _StackDestructor(stack_t *stack, const char* stack_name, const int li
 	free(stack->begin_data);
 
 	stack->data                  = (TYPE_STACK*)POISONS::DATA_AFTER_DESTRUCTOR;
-	stack->begin_data			 = (TYPE_STACK*)POISONS::DATA_AFTER_DESTRUCTOR;
+	stack->begin_data			 = (char*)POISONS::DATA_AFTER_DESTRUCTOR;
 
 	#if PROTECTION_LVL1
 		stack->canary_left       = (CANARY)POISONS::STACK_CANARY_AFTER_DESTRUCTOR;
@@ -85,7 +85,7 @@ ERROR_CODE _StackDestructor(stack_t *stack, const char* stack_name, const int li
 	return ERROR_CODE::OK;
 }
 
-ERROR_CODE StackPush(stack_t *stack, const char* stack_name, const int line, const char* file_name, const char* func_name, const TYPE_STACK new_elem){
+ERROR_CODE _StackPush(stack_t *stack, LOC_PARAMS, const TYPE_STACK new_elem){
 
 	LOC_PARAMS_TO_STACK(stack)
 
@@ -108,7 +108,7 @@ ERROR_CODE StackPush(stack_t *stack, const char* stack_name, const int line, con
 	RETURN(ERROR_CODE::OK, stack)
 }
 
-TYPE_STACK StackPop(stack_t *stack, const char* stack_name, const int line, const char* file_name, const char* func_name){
+TYPE_STACK _StackPop(stack_t *stack, LOC_PARAMS){
 	
 	LOC_PARAMS_TO_STACK(stack)
 
@@ -327,7 +327,9 @@ static ERROR_CODE stack_error(const stack_t *stack){
 		return ERROR_CODE::DATA_IS_NULL;
 	}
 
-	if(stack->data == (TYPE_STACK*)POISONS::DATA_AFTER_DESTRUCTOR){
+	if(stack->data       == (TYPE_STACK*)POISONS::DATA_AFTER_DESTRUCTOR || 
+	   stack->begin_data == (char*)POISONS::DATA_AFTER_DESTRUCTOR){
+
 		return ERROR_CODE::STACK_WAS_DESTR;
 	}
 

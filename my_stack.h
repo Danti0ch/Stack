@@ -88,7 +88,6 @@ struct stack_t{
 
 
 // разумно ???
-
 #define LOC_PARAMS const char* stack_name, const int line, const char* file_name, const char* func_name
 
 #define LOC_PARAMS_TO_STACK(stack)								    \
@@ -110,10 +109,10 @@ ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, LOC_PARAMS);
 
 ERROR_CODE _StackDestructor(stack_t *stack, LOC_PARAMS);
 
-ERROR_CODE _StackPush(stack_t *stack, LOC_PARAMS);
+ERROR_CODE _StackPush(stack_t *stack, LOC_PARAMS, const TYPE_STACK new_elem);
 
 TYPE_STACK _StackPop(stack_t *stack, LOC_PARAMS);
-*/
+
 // obj должен быть указателем
 #if DUMP_ALL
 
