@@ -17,13 +17,11 @@ static ERROR_CODE get_init_mem(stack_t *stack, size_t init_capacity);
 
 static ERROR_CODE stack_error(const stack_t *stack);
 
-
 void stack_dump(const stack_t *stack, const int err_code, const int n_line, const char *file_name, const char* func_name,
 				const char* date, const char* time);
 
 static void dump_stack_data(const stack_t *stack);
 
-// TODO: проверка на существование конструктора
 
 ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* stack_name, const int line, const char* file_name, const char* func_name){
 
@@ -49,11 +47,7 @@ ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* s
 		return (ERROR_CODE)get_init_mem_result;
 	}
 
-	stack->location_info.init_n_line    = line;
-	stack->location_info.init_file_name = (char*)file_name;
-	stack->location_info.init_func_name = (char*)func_name;
-	stack->location_info.stack_name     = (char*)stack_name;
-
+	LOC_PARAMS_TO_STACK(stack)
 
 	#if PROTECTION_LVL2
 		stack->hash_value = get_hash(stack);
@@ -62,14 +56,18 @@ ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* s
 	RETURN(ERROR_CODE::OK, stack)
 }
 
-ERROR_CODE StackDestructor(stack_t *stack){
+ERROR_CODE _StackDestructor(stack_t *stack, const char* stack_name, const int line, const char* file_name, const char* func_name){
+
+	LOC_PARAMS_TO_STACK(stack)
 
 	STACK_VERIFY(stack)
+
 
 	free(stack->begin_data);
 
 	stack->data                  = (TYPE_STACK*)POISONS::DATA_AFTER_DESTRUCTOR;
-	
+	stack->begin_data			 = (TYPE_STACK*)POISONS::DATA_AFTER_DESTRUCTOR;
+
 	#if PROTECTION_LVL1
 		stack->canary_left       = (CANARY)POISONS::STACK_CANARY_AFTER_DESTRUCTOR;
 		stack->canary_right      = (CANARY)POISONS::STACK_CANARY_AFTER_DESTRUCTOR;
@@ -87,9 +85,10 @@ ERROR_CODE StackDestructor(stack_t *stack){
 	return ERROR_CODE::OK;
 }
 
-ERROR_CODE StackPush(stack_t *stack, const TYPE_STACK new_elem){
+ERROR_CODE StackPush(stack_t *stack, const char* stack_name, const int line, const char* file_name, const char* func_name, const TYPE_STACK new_elem){
 
-	DUMP(stack);
+	LOC_PARAMS_TO_STACK(stack)
+
 	STACK_VERIFY(stack);
 
 	if(stack->size + 1 >= stack->capacity){
@@ -109,17 +108,24 @@ ERROR_CODE StackPush(stack_t *stack, const TYPE_STACK new_elem){
 	RETURN(ERROR_CODE::OK, stack)
 }
 
-ERROR_CODE StackPop(stack_t *stack){
+TYPE_STACK StackPop(stack_t *stack, const char* stack_name, const int line, const char* file_name, const char* func_name){
 	
+	LOC_PARAMS_TO_STACK(stack)
+
 	STACK_VERIFY(stack);
+
+	TYPE_STACK upper_elem = stack->data[stack->size - 1];
 
 	if(REDUCE_CAPACITY_RATIO * (stack->size) < stack->capacity){
 
 		int reduce_return = (int)reduce_capacity(stack);
 		
+		assert(reduce_return == (int)ERROR_CODE::OK);
+		/*
 		if(reduce_return != (int)ERROR_CODE::OK){
 			return (ERROR_CODE)reduce_return;
 		}
+		*/
 	}
 	else{
 		stack->data[stack->size - 1] = POISON_ELEM;
@@ -131,7 +137,7 @@ ERROR_CODE StackPop(stack_t *stack){
 		stack->hash_value = get_hash(stack);
 	#endif
 
-	RETURN(ERROR_CODE::OK, stack)
+	RETURN(upper_elem, stack)
 }
 
 static ERROR_CODE increase_capacity(stack_t *stack){
@@ -317,7 +323,7 @@ static ERROR_CODE stack_error(const stack_t *stack){
 
 	#endif
 
-	if(stack->data == NULL){
+	if(stack->data == NULL || stack->begin_data == NULL){
 		return ERROR_CODE::DATA_IS_NULL;
 	}
 

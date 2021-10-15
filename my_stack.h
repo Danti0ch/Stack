@@ -86,18 +86,34 @@ struct stack_t{
 };
 
 
-// TODO: сделать обёртки
+
+// разумно ???
+
+#define LOC_PARAMS const char* stack_name, const int line, const char* file_name, const char* func_name
+
+#define LOC_PARAMS_TO_STACK(stack)								    \
+	(stack)->location_info.init_n_line    = line;					\
+	(stack)->location_info.init_file_name = (char*)file_name;		\
+	(stack)->location_info.init_func_name = (char*)func_name;		\
+	(stack)->location_info.stack_name     = (char*)stack_name;	    \
+
 
 #define StackConstructor(obj, cap) _StackConstructor((obj), (cap), #obj, LOCATION)
 
-ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, const char* stack_name, const int line, const char* file_name, const char* func_name);
+#define StackDestructor(obj) _StackDestructor((obj), #obj, LOCATION)
 
-ERROR_CODE StackDestructor(stack_t *stack);
+#define StackPush(obj, elem) _StackPush((obj), #obj, LOCATION, (elem))
 
-ERROR_CODE StackPush(stack_t *stack, const TYPE_STACK new_elem);
+#define StackPop(obj) _StackPop((obj), #obj, LOCATION)
 
-ERROR_CODE StackPop(stack_t *stack);
+ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, LOC_PARAMS);
 
+ERROR_CODE _StackDestructor(stack_t *stack, LOC_PARAMS);
+
+ERROR_CODE _StackPush(stack_t *stack, LOC_PARAMS);
+
+TYPE_STACK _StackPop(stack_t *stack, LOC_PARAMS);
+*/
 // obj должен быть указателем
 #if DUMP_ALL
 
