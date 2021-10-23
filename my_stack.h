@@ -7,8 +7,8 @@
 #include <cstdint>
 #include "log.h"
 
-#define LOCATION __LINE__, __FILE__, __FUNCTION__
-#define DATE_OF_DEBUG __DATE__, __TIME__
+#define LOCATION       __LINE__, __FILE__, __FUNCTION__
+#define DATE_OF_DEBUG  __DATE__, __TIME__
 
 typedef unsigned long long CANARY;
 
@@ -18,19 +18,19 @@ const uint32_t HASH_INIT_VALUE  = 0xDED32DED;
 #define DUMP_ALL defined(TOTAL_DUMP)
 // #define SHOW_POISONS
 #define PROTECTION_LVL0 (defined(DEBUG))
-#define PROTECTION_LVL1 ((DEBUG == 2) || (DEBUG == 3))
-#define PROTECTION_LVL2 (DEBUG == 3)
+#define PROTECTION_LVL1  ((DEBUG == 2) || (DEBUG == 3))
+#define PROTECTION_LVL2   (DEBUG == 3)
 
-const int STACK_INIT_CAPACITY = 32;
-const int INCREASE_CAPACITY_RATIO = 2;
-const int REDUCE_CAPACITY_RATIO = 8;
+const int STACK_INIT_CAPACITY       = 32;
+const int INCREASE_CAPACITY_RATIO   = 2;
+const int REDUCE_CAPACITY_RATIO     = 8;
 
 enum class ERROR_CODE{
 	OK								= 0x1DEA01,
 	MEM_ALLOC_ERROR				    = 0x1DEA02,
 	DATA_IS_NULL					= 0x1DEA03,
 	STACK_WAS_DESTR				    = 0x1DEA04,
-	//NOT_VALID_SIZE					= 0x1DEA05,
+	//NOT_VALID_SIZE		  	    = 0x1DEA05,
 	NOT_VALID_CAPACITY				= 0x1DEA06,
 	NOT_VALID_LEFT_STRUCT_CANARY	= 0x1DEA07,
 	NOT_VALID_RIGHT_STRUCT_CANARY	= 0x1DEA08,
@@ -105,6 +105,8 @@ struct stack_t{
 
 #define StackPop(obj) _StackPop((obj), #obj, LOCATION)
 
+#define StackTop(obj) _StackTop((obj), #obj, LOCATION)
+	
 ERROR_CODE _StackConstructor(stack_t* stack, size_t init_capacity, LOC_PARAMS);
 
 ERROR_CODE _StackDestructor(stack_t *stack, LOC_PARAMS);
@@ -112,6 +114,11 @@ ERROR_CODE _StackDestructor(stack_t *stack, LOC_PARAMS);
 ERROR_CODE _StackPush(stack_t *stack, LOC_PARAMS, const TYPE_STACK new_elem);
 
 TYPE_STACK _StackPop(stack_t *stack, LOC_PARAMS);
+
+TYPE_STACK _StackTop(stack_t* stack, LOC_PARAMS);
+
+void stack_dump(const stack_t *stack, const int err_code, const int n_line, const char *file_name, const char* func_name,
+				const char* date, const char* time);
 
 // obj должен быть указателем
 #if DUMP_ALL

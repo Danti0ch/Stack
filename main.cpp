@@ -11,11 +11,15 @@ int main(){
 	
 	stack_t stack = {};
 	stack_t *st = &stack;
-	StackConstructor(st, 10000);
-
-	for(int j = 0; j < 10; j++)
-		StackPush(st, 123);
-
+	int a = (int)StackConstructor(st, 1);
+	
+	StackPush(&stack, 1);
+	StackPush(&stack, 1);
+	StackPush(&stack, 1);
+	StackPush(&stack, 12);
+	
+	int t = StackTop(st);
+	printf("%d\n", t);
 	StackDestructor(st);	
 
 	close_log_file();

@@ -17,9 +17,6 @@ static ERROR_CODE get_init_mem(stack_t *stack, size_t init_capacity);
 
 static ERROR_CODE stack_error(const stack_t *stack);
 
-void stack_dump(const stack_t *stack, const int err_code, const int n_line, const char *file_name, const char* func_name,
-				const char* date, const char* time);
-
 static void dump_stack_data(const stack_t *stack);
 
 
@@ -136,6 +133,19 @@ TYPE_STACK _StackPop(stack_t *stack, LOC_PARAMS){
 	#if PROTECTION_LVL2
 		stack->hash_value = get_hash(stack);
 	#endif
+
+	RETURN(upper_elem, stack)
+}
+
+TYPE_STACK _StackTop(stack_t* stack, LOC_PARAMS){
+
+	LOC_PARAMS_TO_STACK(stack)
+
+	STACK_VERIFY(stack);
+
+	assert(stack->size > 0);
+	TYPE_STACK upper_elem = stack->data[stack->size - 1];
+	assert(upper_elem != POISON_ELEM);
 
 	RETURN(upper_elem, stack)
 }
